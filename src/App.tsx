@@ -340,6 +340,7 @@ function App() {
                   <option>MCQ</option>
                   <option>MSQ</option>
                   <option>NAT</option>
+                  <option>SUB</option>
                 </select>
               </div>
 

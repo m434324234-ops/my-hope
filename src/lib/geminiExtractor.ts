@@ -1,7 +1,7 @@
 export interface ExtractedQuestion {
   question_type: string;
   question_statement: string;
-  options?: string[];
+  options?: (string | object)[];
   correct_marks: number;
   incorrect_marks: number;
   skipped_marks: number;
@@ -52,56 +52,110 @@ class GeminiAPIManager {
       time_minutes: number;
     }
   ): Promise<ExtractedQuestion[]> {
-    const prompt = `You are an expert question extractor. Extract ALL questions from this exam paper image. For each question:
+    const prompt = `You are an expert question extractor for exam papers. Extract ALL questions from this image with EXTREME attention to detail.
 
-1. Extract the complete question statement
-2. If the question is MCQ or MSQ, extract all options
-3. Format mathematical expressions, symbols, and equations in proper KaTeX syntax (use \\text{} for plain text, proper math mode for equations)
-4. If there are diagrams, circuits, graphs, FBD, or visual elements that CANNOT be represented purely in KaTeX:
-   - Include a placeholder in the question statement like: [DIAGRAM_PLACEHOLDER]
-   - Describe the diagram structure in detail so it can be converted to Excalidraw JSON format
-   - Provide coordinates, shapes (rectangle, ellipse, polygon, line, arrow, text), and labels
-   - Use this format for Excalidraw JSON:
+CRITICAL FORMATTING RULES:
+
+1. TEXT FORMATTING:
+   - Use KaTeX for ALL mathematical expressions
+   - Wrap plain text in \\text{}
+   - Use $ for inline math mode
+   - Examples: \\text{A } 4 \\times 4 \\text{ digital image}, U \\leq 4
+
+2. TABLES:
+   - ALWAYS use KaTeX array format for tables
+   - Example:
+   \\begin{array}{|c|c|c|c|}
+   \\hline
+   0 & 1 & 0 & 2 \\\\
+   \\hline
+   4 & 7 & 3 & 3 \\\\
+   \\hline
+   \\end{array}
+
+3. DIAGRAMS (circuits, graphs, geometric figures, FBDs):
+   - If the question contains a diagram that CANNOT be represented in KaTeX, embed Excalidraw JSON
+   - Place the Excalidraw JSON directly in the question_statement after describing what it shows
+   - Format:
    {
      "type": "excalidraw",
      "version": 2,
      "source": "supabase-mastersup",
      "elements": [
        {
-         "id": "unique-id",
-         "type": "rectangle|ellipse|polygon|line|arrow|text",
-         "x": number,
-         "y": number,
-         "width": number (for rectangles/ellipses),
-         "height": number (for rectangles/ellipses),
-         "points": [[x1,y1], [x2,y2]] (for polygons/lines),
-         "text": "content" (for text elements),
-         "fontSize": number (for text),
+         "id": "unique-id-1",
+         "type": "rectangle",
+         "x": 100,
+         "y": 150,
+         "width": 200,
+         "height": 120,
          "strokeColor": "#000000",
          "backgroundColor": "transparent",
          "strokeWidth": 2
+       },
+       {
+         "id": "unique-id-2",
+         "type": "polygon",
+         "x": 180,
+         "y": 50,
+         "points": [[0,0], [150,220], [-150,220]],
+         "strokeColor": "#000000",
+         "backgroundColor": "transparent",
+         "strokeWidth": 2
+       },
+       {
+         "id": "unique-id-3",
+         "type": "ellipse",
+         "x": 130,
+         "y": 190,
+         "width": 220,
+         "height": 120,
+         "strokeColor": "#000000",
+         "backgroundColor": "transparent",
+         "strokeWidth": 2
+       },
+       {
+         "id": "text-1",
+         "type": "text",
+         "x": 200,
+         "y": 200,
+         "text": "Label",
+         "fontSize": 24,
+         "strokeColor": "#000000"
        }
      ]
    }
 
-5. For simple tables, try to represent them in KaTeX using \\begin{array} format
-6. For options, if any option contains a diagram, provide the Excalidraw JSON for that specific option
+4. OPTIONS:
+   - Extract all options (A, B, C, D, etc.)
+   - If an option is simple text/math, use string
+   - If an option contains a diagram, use Excalidraw JSON object
+   - Options array can mix strings and objects
 
-Return a JSON array of questions in this exact format:
+EXAMPLES:
+
+Example 1 (Table in question):
+{
+  "question_statement": "\\text{A } 4 \\times 4 \\text{ digital image has pixel intensities } (U) \\text{ as shown in the figure. The number of pixels with } U \\leq 4 \\text{ is:}\\n\\n\\begin{array}{|c|c|c|c|}\\n\\hline\\n0 & 1 & 0 & 2 \\\\\\\\\\n\\hline\\n4 & 7 & 3 & 3 \\\\\\\\\\n\\hline\\n5 & 5 & 4 & 4 \\\\\\\\\\n\\hline\\n6 & 7 & 3 & 2 \\\\\\\\\\n\\hline\\n\\end{array}",
+  "options": ["3", "8", "11", "9"]
+}
+
+Example 2 (Diagram in question):
+{
+  "question_statement": "\\text{In the given figure, the numbers associated with the rectangle, triangle, and ellipse are } 1, 2, \\text{ and } 3, \\text{ respectively. Which one among the given options is the most appropriate combination of } P, Q, \\text{ and } R?\\n\\n{\\"type\\":\\"excalidraw\\",\\"version\\":2,\\"source\\":\\"supabase-mastersup\\",\\"elements\\":[{\\"id\\":\\"rect-1\\",\\"type\\":\\"rectangle\\",\\"x\\":100,\\"y\\":150,\\"width\\":200,\\"height\\":120,\\"strokeColor\\":\\"#000000\\",\\"backgroundColor\\":\\"transparent\\",\\"strokeWidth\\":2},{\\"id\\":\\"tri-1\\",\\"type\\":\\"polygon\\",\\"x\\":180,\\"y\\":50,\\"points\\":[[0,0],[150,220],[-150,220]],\\"strokeColor\\":\\"#000000\\",\\"backgroundColor\\":\\"transparent\\",\\"strokeWidth\\":2},{\\"id\\":\\"ellipse-1\\",\\"type\\":\\"ellipse\\",\\"x\\":130,\\"y\\":190,\\"width\\":220,\\"height\\":120,\\"strokeColor\\":\\"#000000\\",\\"backgroundColor\\":\\"transparent\\",\\"strokeWidth\\":2},{\\"id\\":\\"text-1\\",\\"type\\":\\"text\\",\\"x\\":70,\\"y\\":200,\\"text\\":\\"1\\",\\"fontSize\\":24,\\"strokeColor\\":\\"#000000\\"},{\\"id\\":\\"text-2\\",\\"type\\":\\"text\\",\\"x\\":210,\\"y\\":60,\\"text\\":\\"2\\",\\"fontSize\\":24,\\"strokeColor\\":\\"#000000\\"},{\\"id\\":\\"text-3\\",\\"type\\":\\"text\\",\\"x\\":260,\\"y\\":300,\\"text\\":\\"3\\",\\"fontSize\\":24,\\"strokeColor\\":\\"#000000\\"},{\\"id\\":\\"text-P\\",\\"type\\":\\"text\\",\\"x\\":190,\\"y\\":240,\\"text\\":\\"P\\",\\"fontSize\\":24,\\"strokeColor\\":\\"#000000\\"},{\\"id\\":\\"text-Q\\",\\"type\\":\\"text\\",\\"x\\":260,\\"y\\":250,\\"text\\":\\"Q\\",\\"fontSize\\":24,\\"strokeColor\\":\\"#000000\\"},{\\"id\\":\\"text-R\\",\\"type\\":\\"text\\",\\"x\\":210,\\"y\\":170,\\"text\\":\\"R\\",\\"fontSize\\":24,\\"strokeColor\\":\\"#000000\\"}]}",
+  "options": ["P = 6; Q = 5; R = 3", "P = 5; Q = 6; R = 3", "P = 3; Q = 6; R = 6", "P = 5; Q = 3; R = 6"]
+}
+
+RETURN FORMAT:
+Return ONLY a valid JSON array with this structure:
 [
   {
-    "question_statement": "The full question text with KaTeX formatting or with Excalidraw JSON embedded",
-    "options": ["Option 1", "Option 2", "Option 3", "Option 4"] or null if not MCQ/MSQ,
-    "question_type": "${questionMetadata.question_type}"
+    "question_statement": "formatted text with KaTeX and/or Excalidraw JSON",
+    "options": ["option1", "option2", "option3", "option4"] or null for non-MCQ/MSQ
   }
 ]
 
-IMPORTANT:
-- Extract EVERY question visible in the image
-- Use proper KaTeX syntax: \\text{} for text, \\frac{}{} for fractions, \\sqrt{} for roots, subscripts with _, superscripts with ^
-- For Excalidraw diagrams, ensure all coordinates are properly calculated to match the visual layout
-- Return ONLY valid JSON, no additional text
-- If multiple questions exist, include all of them in the array`;
+Extract EVERY question from the image. Be precise with formatting. Return ONLY the JSON array.`;
 
     const base64Data = imageDataUrl.split(',')[1];
 
@@ -137,10 +191,10 @@ IMPORTANT:
                 },
               ],
               generationConfig: {
-                temperature: 0.2,
-                topK: 40,
-                topP: 0.95,
-                maxOutputTokens: 8192,
+                temperature: 0.1,
+                topK: 32,
+                topP: 0.9,
+                maxOutputTokens: 16384,
               },
             }),
           }

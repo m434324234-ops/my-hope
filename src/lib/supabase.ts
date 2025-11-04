@@ -42,7 +42,7 @@ export interface Question {
   id?: string;
   question_type: string;
   question_statement: string;
-  options?: string[];
+  options?: (string | object)[];
   course_id: string;
   slot?: string;
   part?: string;
